@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"math"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
@@ -16,13 +17,12 @@ const (
 type BasicAuthClient struct {
 	Options *ClientOptions
 	client  *http.Client
-	ttfbMap map[*http.Response]time.Duration
+	ttfbMap map[*http.Response]int
 	mu      sync.Mutex
 }
 
 type ClientOptions struct {
 	UserAgent        string
-	BasicAuth        bool
 	BasicAuthDomains []string
 	AuthUser         string
 	AuthPass         string
@@ -39,7 +39,7 @@ func NewClient(options *ClientOptions) *BasicAuthClient {
 	return &BasicAuthClient{
 		client:  httpClient,
 		Options: options,
-		ttfbMap: make(map[*http.Response]time.Duration),
+		ttfbMap: make(map[*http.Response]int),
 	}
 }
 
@@ -55,7 +55,7 @@ func (c *BasicAuthClient) request(method, u string) (*http.Response, error) {
 		return &http.Response{}, err
 	}
 
-	if c.Options.BasicAuth && c.isBasicAuthDomain(domain.Host) {
+	if c.Options.AuthUser != "" && c.isBasicAuthDomain(domain.Host) {
 		req.SetBasicAuth(c.Options.AuthUser, c.Options.AuthPass)
 	}
 
@@ -89,10 +89,10 @@ func (c *BasicAuthClient) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", c.Options.UserAgent)
 
 	var start time.Time
-	var ttfb time.Duration
+	var ttfb int
 	trace := &httptrace.ClientTrace{
 		GotFirstResponseByte: func() {
-			ttfb = time.Since(start)
+			ttfb = int(math.Ceil(float64(time.Since(start) / time.Millisecond))) // Time To First Byte in milliseconds
 		},
 	}
 	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
@@ -112,7 +112,7 @@ func (c *BasicAuthClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 // GetTTFB retrieves the ttfb value for a given response.
-func (c *BasicAuthClient) GetTTFB(resp *http.Response) time.Duration {
+func (c *BasicAuthClient) GetTTFB(resp *http.Response) int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
