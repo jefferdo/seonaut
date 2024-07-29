@@ -2,7 +2,6 @@ package models
 
 import (
 	"net/url"
-	"time"
 )
 
 type PageReport struct {
@@ -27,7 +26,7 @@ type PageReport struct {
 	ExternalLinks      []Link
 	Words              int
 	Hreflangs          []Hreflang
-	Size               int
+	Size               int64
 	Images             []Image
 	Scripts            []string
 	Styles             []string
@@ -41,5 +40,5 @@ type PageReport struct {
 	Depth              int
 	BodyHash           string
 	Timeout            bool
-	TTFB               time.Duration
+	TTFB               int
 }
